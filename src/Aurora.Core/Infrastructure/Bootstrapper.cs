@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Aurora.Core.Commands;
 using Autofac;
@@ -40,6 +41,18 @@ namespace Aurora.Core.Infrastructure
             builder.RegisterModule<TModule>();
 
             var container = builder.Build();
+
+            var infoProviders = container.Resolve<IEnumerable<IStartupInfoProvider>>();
+            foreach (var infoProvider in infoProviders.OrderBy(x => x.Priority))
+            {
+                foreach (var infoText in infoProvider.Provide())
+                {
+                    Logger.Info(infoText);
+                }
+            }
+
+            Console.WriteLine();
+
             var command = container.ResolveKeyed<ICommand>(args.GetType());
             command.SetArguments((ICommandArguments)args);
 
