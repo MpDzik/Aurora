@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Aurora.Core.Commands;
 using Autofac;
 using CommandLine;
+using Microsoft.Extensions.Hosting;
 using NLog;
 
 namespace Aurora.Core.Infrastructure
@@ -58,7 +60,17 @@ namespace Aurora.Core.Infrastructure
 
             try
             {
-                command.Execute();
+                var hostBuilder = Host.CreateDefaultBuilder();
+                var host = command.BuildHost(hostBuilder);
+                if (host != null)
+                {
+                    host.Run();
+                }
+                else
+                {
+                    var cts = new CancellationTokenSource();
+                    var task = ((BackgroundService)command).StartAsync(cts.Token);
+                }
             }
             catch (ApplicationException ex)
             {

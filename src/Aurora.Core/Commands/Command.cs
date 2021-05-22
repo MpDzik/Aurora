@@ -1,9 +1,11 @@
+using Microsoft.Extensions.Hosting;
+
 namespace Aurora.Core.Commands
 {
     public interface ICommand
     {
-        void Execute();
         void SetArguments(ICommandArguments arguments);
+        IHost BuildHost(IHostBuilder builder);
     }
 
     public interface ICommand<out TArgs> : ICommand
@@ -12,16 +14,19 @@ namespace Aurora.Core.Commands
         TArgs Arguments { get; }
     }
 
-    public abstract class Command<TArgs> : ICommand<TArgs>
+    public abstract class Command<TArgs> : BackgroundService, ICommand<TArgs>
         where TArgs : ICommandArguments
     {
-        public abstract void Execute();
+        public TArgs Arguments { get; private set; }
 
         public void SetArguments(ICommandArguments arguments)
         {
             Arguments = (TArgs) arguments;
         }
 
-        public TArgs Arguments { get; private set; }
+        public virtual IHost BuildHost(IHostBuilder builder)
+        {
+            return null;
+        }
     }
 }
