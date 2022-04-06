@@ -9,8 +9,8 @@
     <PackageReference Include="Autofac" Version="6.3.0" />
     <PackageReference Include="CommandLineParser" Version="2.8.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="5.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="5.0.0" />
-    <PackageReference Include="NLog" Version="4.7.14" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="6.0.0" />
+    <PackageReference Include="NLog" Version="4.7.15" />
   </ItemGroup>
 
 </Project>
