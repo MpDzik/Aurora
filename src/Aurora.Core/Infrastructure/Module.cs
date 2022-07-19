@@ -51,7 +51,7 @@ namespace Aurora.Core.Infrastructure
             builder.RegisterAssemblyTypes(_assembly)
                 .AssignableTo<ICommand>()
                 .Where(x => GetArgumentsType(x) != null)
-                .Keyed<ICommand>(GetArgumentsType)
+                .Keyed<ICommand>(x => GetArgumentsType(x))
                 .AsImplementedInterfaces()
                 .SingleInstance();
 
