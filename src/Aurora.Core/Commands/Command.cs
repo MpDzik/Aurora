@@ -5,7 +5,6 @@ namespace Aurora.Core.Commands
     public interface ICommand
     {
         void SetArguments(ICommandArguments arguments);
-        IHost BuildHost(IHostBuilder builder);
     }
 
     public interface ICommand<out TArgs> : ICommand
@@ -22,11 +21,6 @@ namespace Aurora.Core.Commands
         public void SetArguments(ICommandArguments arguments)
         {
             Arguments = (TArgs) arguments;
-        }
-
-        public virtual IHost BuildHost(IHostBuilder builder)
-        {
-            return null;
         }
     }
 }
