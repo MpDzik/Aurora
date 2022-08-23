@@ -16,6 +16,7 @@ namespace Aurora.Core.Infrastructure
 
     public interface IHostConfigurator : IDependency
     {
+        int Priority { get; }
         HostConfiguratorContext Context { get; set; }
         void ConfigureBuilder(IHostBuilder builder);
         void ConfigureServices(HostBuilderContext context, IServiceCollection services);
@@ -26,6 +27,7 @@ namespace Aurora.Core.Infrastructure
 
     public class HostConfigurator : IHostConfigurator
     {
+        public virtual int Priority => 100;
         public HostConfiguratorContext Context { get; set; }
 
         public virtual void ConfigureBuilder(IHostBuilder builder)

@@ -20,17 +20,15 @@ namespace Aurora.Core.Infrastructure
 
         public void Run(string[] args)
         {
-            Parser.Default.ParseArguments(args, GetCommandTypes()).WithParsed(Run);
+            // HACK:
+            // We need to build the boostrap container before calling GetCommandTypes to force loading all assemblies
+            // into the current AppDomain. This may need to be refactored in the future, for now it works properly...
+            var container = BuildBootstrapContainer();
+            Parser.Default.ParseArguments(args, GetCommandTypes()).WithParsed(a => Run(a, container));
         }
 
         protected virtual Type[] GetCommandTypes()
         {
-            // HACK: Build container to force loading all assemblies. This needs to be refactored.
-
-            var builder = new ContainerBuilder();
-            builder.RegisterModule<TModule>();
-            builder.Build();
-
             var commandTypes = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(a => a.GetTypes().Where(x => !x.IsAbstract && x.IsAssignableTo<ICommandArguments>()))
                 .ToArray();
@@ -38,13 +36,15 @@ namespace Aurora.Core.Infrastructure
             return commandTypes;
         }
 
-        protected virtual void Run(object args)
+        protected virtual void Run(object args, IContainer bootstrapContainer)
         {
-            var hostBuilder = CreateHostBuilder(args);
+            var hostBuilder = CreateHostBuilder(args, bootstrapContainer);
 
             try
             {
                 var host = hostBuilder.Build();
+                bootstrapContainer.Dispose();
+
                 var rootScope = host.Services.GetAutofacRoot();
 
                 var infoProviders = rootScope.Resolve<IEnumerable<IStartupInfoProvider>>();
@@ -68,7 +68,7 @@ namespace Aurora.Core.Infrastructure
             }
         }
 
-        private static IHostBuilder CreateHostBuilder(object args)
+        private static IHostBuilder CreateHostBuilder(object args, IContainer startupContainer)
         {
             var hostBuilder = Host.CreateDefaultBuilder();
 
@@ -78,19 +78,23 @@ namespace Aurora.Core.Infrastructure
                     builder.RegisterModule<TModule>();
                 }));
 
-            using var container = BuildStartupContainer();
-            var hostConfigurator = container.Resolve<IHostConfigurator>();
-            hostConfigurator.Context = new HostConfiguratorContext(args);
-            hostConfigurator.ConfigureBuilder(hostBuilder);
-            hostBuilder.ConfigureServices(hostConfigurator.ConfigureServices);
-            hostBuilder.ConfigureAppConfiguration(hostConfigurator.ConfigureAppConfiguration);
-            hostBuilder.ConfigureHostConfiguration(hostConfigurator.ConfigureHostConfiguration);
-            hostConfigurator.ConfigureHost(hostBuilder);
+            var hostConfigurators = startupContainer.Resolve<IEnumerable<IHostConfigurator>>().ToList();
+            var context = new HostConfiguratorContext(args);
+            
+            foreach (var hostConfigurator in hostConfigurators.OrderByDescending(x => x.Priority))
+            {
+                hostConfigurator.Context = context;
+                hostConfigurator.ConfigureBuilder(hostBuilder);
+                hostBuilder.ConfigureServices(hostConfigurator.ConfigureServices);
+                hostBuilder.ConfigureAppConfiguration(hostConfigurator.ConfigureAppConfiguration);
+                hostBuilder.ConfigureHostConfiguration(hostConfigurator.ConfigureHostConfiguration);
+                hostConfigurator.ConfigureHost(hostBuilder);
+            }
 
             return hostBuilder;
         }
 
-        private static IContainer BuildStartupContainer()
+        private static IContainer BuildBootstrapContainer()
         {
             var builder = new ContainerBuilder();
             builder.RegisterModule<TModule>();
