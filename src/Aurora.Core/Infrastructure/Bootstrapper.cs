@@ -39,6 +39,8 @@ namespace Aurora.Core.Infrastructure
         protected virtual void Run(object args, IContainer bootstrapContainer)
         {
             var hostBuilder = CreateHostBuilder(args, bootstrapContainer);
+            var handlers = new List<IApplicationHandler>();
+            var command = null as ICommand;
 
             try
             {
@@ -47,24 +49,31 @@ namespace Aurora.Core.Infrastructure
 
                 var rootScope = host.Services.GetAutofacRoot();
 
+                handlers = rootScope.Resolve<IEnumerable<IApplicationHandler>>().ToList();
+                InvokeHandlers(handlers, x => x.OnApplicationInitialize());
+
                 var infoProviders = rootScope.Resolve<IEnumerable<IStartupInfoProvider>>();
                 InvokeStartupInfoProviders(infoProviders);
 
-                var command = rootScope.ResolveKeyed<ICommand>(args.GetType());
+                command = rootScope.ResolveKeyed<ICommand>(args.GetType());
                 command.SetArguments((ICommandArguments)args);
+                InvokeHandlers(handlers, x => x.OnCommandInitialize(command));
 
                 var cts = new CancellationTokenSource();
                 var backgroundService = (BackgroundService)command;
                 backgroundService.StartAsync(cts.Token);
                 backgroundService.ExecuteTask.Wait(cts.Token);
+                InvokeHandlers(handlers, x => x.OnCommandCompleted(command));
             }
             catch (ApplicationException ex)
             {
                 Logger.Fatal(ex.Message);
+                InvokeHandlers(handlers, x => x.OnCommandCompleted(command));
             }
             catch (Exception ex)
             {
                 Logger.Fatal(ex);
+                InvokeHandlers(handlers, x => x.OnCommandCompleted(command));
             }
         }
 
@@ -100,6 +109,14 @@ namespace Aurora.Core.Infrastructure
             builder.RegisterModule<TModule>();
 
             return builder.Build();
+        }
+
+        private static void InvokeHandlers(IEnumerable<IApplicationHandler> handlers, Action<IApplicationHandler> action)
+        {
+            foreach (var initializer in handlers.OrderBy(x => x.Priority))
+            {
+                action(initializer);
+            }
         }
 
         private static void InvokeStartupInfoProviders(IEnumerable<IStartupInfoProvider> providers)
